@@ -1,27 +1,39 @@
 import sys
-import requests
 import os
+import shutil
 import threading
-import time
+import requests
+from flask import Flask, jsonify
 from PyQt6.QtWidgets import QApplication, QLabel, QWidget, QVBoxLayout
 from PyQt6.QtGui import QPixmap
-from flask import Flask, jsonify
+from PyQt6.QtCore import QTimer
 
-SERVER_URL = ""  # Add admin server IP
+# Server Ip
+SERVER_URL = "http://192.168.68.52:5001"   
+
+# Local folder to store downloaded slide PNGs
 LOCAL_SLIDES_FOLDER = "slides"
-REFRESH_INTERVAL = 10  # Time in seconds between slide changes
 
-app = Flask(__name__)
+# Number of seconds each slide is shown
+REFRESH_INTERVAL = 10
+
+flask_app = Flask(__name__)
 
 class BranchDisplay(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
+        
         self.slides = []
         self.current_index = 0
-        self.running = True
+        
+        # Download initial slides
         self.download_slides()
-        threading.Thread(target=self.slideshow, daemon=True).start()
+        
+        # Use a QTimer to cycle slides
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.show_next_slide)
+        self.timer.start(REFRESH_INTERVAL * 1000)
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -32,54 +44,87 @@ class BranchDisplay(QWidget):
         self.setGeometry(300, 300, 1280, 720)
 
     def download_slides(self):
-        """Fetch latest slides from the server"""
+        """
+        Fetches the latest slide filenames from the server, downloads each PNG,
+        and stores them in LOCAL_SLIDES_FOLDER. Old slides are cleared first.
+        """
+        # Clear slides folder
+        if os.path.exists(LOCAL_SLIDES_FOLDER):
+            shutil.rmtree(LOCAL_SLIDES_FOLDER)
         os.makedirs(LOCAL_SLIDES_FOLDER, exist_ok=True)
 
+        self.slides = []
         try:
+            # Get list of slides from server
             response = requests.get(f"{SERVER_URL}/slides")
-            if response.status_code == 200:
-                slide_list = response.json().get("slides", [])
-                self.slides = []
+            response.raise_for_status()
 
-                for slide in slide_list:
-                    slide_path = os.path.join(LOCAL_SLIDES_FOLDER, slide)
-                    response = requests.get(f"{SERVER_URL}/slides/{slide}")
+            slide_list = response.json().get("slides", [])
 
-                    if response.status_code == 200:
-                        with open(slide_path, "wb") as f:
-                            f.write(response.content)
-                        self.slides.append(slide_path)
+            # Download each slide
+            for slide_name in slide_list:
+                slide_url = f"{SERVER_URL}/slides/{slide_name}"
+                slide_path = os.path.join(LOCAL_SLIDES_FOLDER, slide_name)
 
-        except requests.exceptions.RequestException:
-            print("Failed to fetch slides from server")
+                r = requests.get(slide_url)
+                r.raise_for_status()
 
-    def slideshow(self):
-        """Cycle through slides"""
-        while self.running:
-            if self.slides:
-                slide_path = self.slides[self.current_index]
-                self.display_slide(slide_path)
-                self.current_index = (self.current_index + 1) % len(self.slides)
+                with open(slide_path, "wb") as f:
+                    f.write(r.content)
 
-            time.sleep(REFRESH_INTERVAL)
+                self.slides.append(slide_path)
+
+        except requests.exceptions.RequestException as e:
+            print(f"Failed to fetch slides from server: {e}")
+
+        # Reset slideshow index to start from beginning
+        self.current_index = 0
+        
+        # If there's at least one slide, display it immediately
+        if self.slides:
+            self.display_slide(self.slides[0])
+        else:
+            self.label.setText("No slides found on server.")
+
+    def show_next_slide(self):
+        """
+        Called by the QTimer every REFRESH_INTERVAL seconds.
+        Cycles to the next slide and updates the QLabel.
+        """
+        if not self.slides:
+            return  # No slides to show
+
+        self.current_index = (self.current_index + 1) % len(self.slides)
+        slide_path = self.slides[self.current_index]
+        self.display_slide(slide_path)
 
     def display_slide(self, slide_path):
-        """Display an image slide"""
+        """
+        Load slide PNG into a QPixmap and display it in the QLabel.
+        """
         pixmap = QPixmap(slide_path)
         self.label.setPixmap(pixmap)
         self.label.setScaledContents(True)
 
-@app.route('/reload')
+@flask_app.route('/reload')
 def reload_slides():
-    """Endpoint to trigger slide reload"""
+    """
+    Flask endpoint called by the server's notify_branches() thread.
+    This triggers a re-download of the slides without stopping the app.
+    """
     display_window.download_slides()
     return jsonify({"message": "Slides reloaded successfully"}), 200
 
 if __name__ == "__main__":
-    flask_thread = threading.Thread(target=lambda: app.run(host="0.0.0.0", port=5001, debug=False), daemon=True)
+    # 1. Start the Flask server in a background thread, so we can respond to /reload.
+    flask_thread = threading.Thread(
+        target=lambda: flask_app.run(host="0.0.0.0", port=5002, debug=False),
+        daemon=True
+    )
     flask_thread.start()
 
-    app = QApplication(sys.argv)
+    # 2. Start the PyQt app for slideshow.
+    qt_app = QApplication(sys.argv)
     display_window = BranchDisplay()
     display_window.show()
-    sys.exit(app.exec())
+    sys.exit(qt_app.exec())
