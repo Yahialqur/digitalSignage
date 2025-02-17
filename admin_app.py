@@ -2,7 +2,8 @@ import sys
 import requests
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog
 
-SERVER_URL = "" #Add server IP
+# Server machine Ip
+SERVER_URL = "http://192.168.68.52:5001"  
 
 class AdminApp(QWidget):
     def __init__(self):
@@ -28,11 +29,18 @@ class AdminApp(QWidget):
         self.setGeometry(300, 300, 400, 200)
 
     def upload_ppt(self):
+        """
+        Opens a file chooser for a .pptx, then sends it to the server's /upload endpoint.
+        """
         file_path, _ = QFileDialog.getOpenFileName(self, "Select PowerPoint File", "", "PowerPoint Files (*.pptx)")
         if file_path:
             self.status_label.setText("Uploading...")
-            with open(file_path, 'rb') as f:
-                response = requests.post(f"{SERVER_URL}/upload", files={'file': f})
+            try:
+                with open(file_path, 'rb') as f:
+                    response = requests.post(f"{SERVER_URL}/upload", files={'file': f})
+            except requests.exceptions.RequestException as e:
+                self.status_label.setText(f"Upload failed: {e}")
+                return
             
             if response.status_code == 200:
                 self.status_label.setText("Upload successful. Slides processed.")
@@ -40,7 +48,15 @@ class AdminApp(QWidget):
                 self.status_label.setText("Upload failed. Try again.")
 
     def reload_slides(self):
-        response = requests.get(f"{SERVER_URL}/reload")  
+        """
+        Calls the server's /reload to force a refresh on branch displays.
+        """
+        try:
+            response = requests.get(f"{SERVER_URL}/reload")
+        except requests.exceptions.RequestException as e:
+            self.status_label.setText(f"Failed to reload slides: {e}")
+            return
+
         if response.status_code == 200:
             self.status_label.setText("Slides reloaded at branches.")
         else:
