@@ -29,12 +29,6 @@ pip install -r requirements.txt
 ```
 
 For LibreOffice and Poppler:
-Run the following command to install required dependencies:
-```sh
-pip install flask pyqt6 requests
-```
-
-For LibreOffice and Poppler:
 - **Ubuntu/Debian**:
   ```sh
   sudo apt install libreoffice poppler-utils
