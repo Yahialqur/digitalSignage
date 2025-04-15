@@ -1,7 +1,7 @@
-# Digital Signage Software
+# Digital Signage Software Prototype
 
 ## Overview
-This is a project I worked on to help a local mid-sized business. With over 20 branches they needed a software to manage their digital signage. 
+This is a prototype project I worked on to help a local mid-sized business. With over 20 branches they needed a software to manage their digital signage. 
 This digital signage software enables centralized management of PowerPoint slides that are displayed on screens across multiple branch locations. The system includes an admin application for uploading slides, a server for processing and distributing them, and a client application at each branch to display the slides.
 
 ## Features
@@ -42,6 +42,11 @@ For LibreOffice and Poppler:
   - Install Poppler for Windows and add `pdftoppm.exe` to the system PATH.
 
 ## Usage
+### Configuring IP's
+  - In server.py add all the branch clients ip's and ports
+  - In control.py add the server ip and port
+  - In branch_app.py add the server ip and port
+
 ### Running the Server
 ```sh
 python server.py
