@@ -9,7 +9,7 @@ from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QTimer
 
 # Server Ip
-SERVER_URL = "http://192.168.68.52:5001"   
+SERVER_URL = ""   #Add server ip and port here
 
 # Local folder to store downloaded slide PNGs
 LOCAL_SLIDES_FOLDER = "slides"
