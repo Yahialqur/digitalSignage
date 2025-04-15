@@ -12,7 +12,7 @@ UPLOAD_FOLDER = "uploads"
 SLIDES_FOLDER = "static/slides"
 
 # List of branch client base URLs
-BRANCH_CLIENTS = ["http://192.168.68.56:5002"]  # Example IP:port
+BRANCH_CLIENTS = ["", ""]  #Add branch client ips and ports here
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(SLIDES_FOLDER, exist_ok=True)
@@ -65,14 +65,11 @@ def convert_pptx_to_images(pptx_path):
     if pdf_result.returncode != 0:
         raise RuntimeError("LibreOffice failed to convert PPTX to PDF.")
 
-    # Figure out the PDF filename. Usually it has the same base as the PPTX, just .pdf
-    # e.g. if pptx_path = uploads/test.pptx, then LibreOffice typically produces test.pdf
     base_name = os.path.splitext(os.path.basename(pptx_path))[0]
     pdf_path = os.path.join(SLIDES_FOLDER, base_name + ".pdf")
 
     if not os.path.exists(pdf_path):
         # If the name is different or if something went wrong, check the directory for a .pdf
-        # Possibly LibreOffice might have named it differently
         possible_pdfs = [f for f in os.listdir(SLIDES_FOLDER) if f.lower().endswith(".pdf")]
         if possible_pdfs:
             pdf_path = os.path.join(SLIDES_FOLDER, possible_pdfs[0])
@@ -143,5 +140,5 @@ def notify_branches():
     threading.Thread(target=notify).start()
 
 if __name__ == '__main__':
-    # Run the server on 0.0.0.0 so it’s reachable from other machines on the network.
+    # Run the server on 0.0.0.0 port 5001
     app.run(host='0.0.0.0', port=5001, debug=True)
